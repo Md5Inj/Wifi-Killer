@@ -109,23 +109,32 @@ vector<string> getNetworkDevices() {
 	return split(ipLinkResult, " ");
 }
 
+void printNetworkDevices(vector<string> devices) {
+	int index = 0;
+	for (auto i = devices.begin(); i != devices.end(); ++i) {
+		index = distance(devices.begin(), i);
+		cout << index + 1 << ": " << *i << endl;
+	}
+}
+
 int main(int argc, char** argv) {
-	string adapter;
+	vector<string> devices;
+	int inputtedDevice = 0;
 	
+	clear();
+
 	if ( checkRoot() ) {
 		showLogo();
-		clear();
-		showLogo();
 		system("airmon-ng check kill");
-		system("iwconfig");
+		devices = getNetworkDevices();
+		printNetworkDevices(devices);
+		cout << "Input index of needed device" << endl << "WK>";
+		cin >> inputtedDevice;
 
-		cout << "\nEnter name of adapter(wlan0, etc.)\nWK>";
-		cin  >> adapter;
-
-		system(("airmon-ng start " + adapter).c_str());
+		system(("airmon-ng start " + devices.at(inputtedDevice - 1)).c_str());
 		system("clear");
 
-		wifi(adapter);
+		wifi(devices.at(inputtedDevice - 1));
 
 		return 0;
 	} else {
