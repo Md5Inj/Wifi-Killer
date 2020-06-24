@@ -2,7 +2,7 @@
 # Automatically-generated file. Do not edit!
 ################################################################################
 
--include ../makefile.init
+-include makefile.init
 
 RM := rm -rf
 
@@ -32,7 +32,7 @@ ifneq ($(strip $(C_DEPS)),)
 endif
 endif
 
--include ../makefile.defs
+-include makefile.defs
 
 # Add inputs and outputs from these tool invocations to the build variables 
 
@@ -43,7 +43,7 @@ all: wifi\ killer
 wifi\ killer: $(OBJS) $(USER_OBJS)
 	@echo 'Building target: $@'
 	@echo 'Invoking: GCC C++ Linker'
-	g++  -o "wifi killer" $(OBJS) $(USER_OBJS) $(LIBS)
+	g++  -o "wkiller" $(OBJS) $(USER_OBJS) $(LIBS)
 	@echo 'Finished building target: $@'
 	@echo ' '
 
